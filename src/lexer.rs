@@ -9,6 +9,7 @@ pub enum TokenType {
     Float(String),
     LeftBrace,
     RightBrace,
+    Newline,
 }
 
 #[derive(Debug, Clone)]
@@ -34,7 +35,7 @@ impl Tokenizer {
     }
 
     fn peek(&self, offset: usize) -> Option<char> {
-        self.content.chars().nth(offset)
+        self.content.chars().nth(self.index + offset)
     }
 
     fn consume(&mut self) -> Result<char> {
@@ -47,10 +48,11 @@ impl Tokenizer {
         c
     }
 
-    fn parse_number(&mut self, line: usize, col: usize) -> Result<Token> {
+    fn parse_number(&mut self, line: usize, col: usize) -> Result<(Token, usize)> {
         let mut buf = String::new();
         buf.push(self.consume()?);
         let mut is_float = false;
+        let mut col_delta = 0usize;
 
         while self.peek(0).is_some_and(|c| c.is_digit(10) || c == '.') {
             let c = self.peek(0).unwrap();
@@ -65,13 +67,59 @@ impl Tokenizer {
             }
             buf.push(c);
             self.consume()?;
+            col_delta += 1;
         }
 
-        Ok(if is_float {
-            Token(TokenType::Float(buf), Loc(col, line))
-        } else {
-            Token(TokenType::Int(buf), Loc(col, line))
-        })
+        Ok((
+            if is_float {
+                Token(TokenType::Float(buf), Loc(col, line))
+            } else {
+                Token(TokenType::Int(buf), Loc(col, line))
+            },
+            col_delta + 1,
+        ))
+    }
+
+    fn parse_string(&mut self, line: usize, col: usize) -> Result<(Token, usize)> {
+        self.consume()?;
+        let mut buf = String::new();
+        let mut col_delta = 0usize;
+
+        while self.peek(0).is_some_and(|c| c != '"') {
+            if self.peek(0).unwrap() == '\n' {
+                return Err(Error::new(
+                    ErrorKind::InvalidInput,
+                    format!("Un-allowed newline at {}:{}", line, col),
+                ));
+            }
+            buf.push(self.consume()?);
+            col_delta += 1;
+        }
+        self.consume()?;
+
+        Ok((
+            (Token(TokenType::String(buf), Loc(line, col))),
+            col_delta + 1,
+        ))
+    }
+
+    fn parse_ident(&mut self, line: usize, col: usize) -> Result<(Token, usize)> {
+        let mut buf = String::new();
+        buf.push(self.consume()?);
+        let mut col_delta = 0usize;
+
+        while self
+            .peek(0)
+            .is_some_and(|c| c.is_alphabetic() && !c.is_whitespace() && c != '=')
+        {
+            buf.push(self.consume()?);
+            col_delta += 1;
+        }
+
+        Ok((
+            (Token(TokenType::Ident(buf), Loc(line, col))),
+            col_delta + 1,
+        ))
     }
 
     pub fn tokenize(&mut self) -> Result<Vec<Token>> {
@@ -84,12 +132,39 @@ impl Tokenizer {
             if c == '\n' {
                 line += 1;
                 col = 1;
+                self.tokens.push(Token(TokenType::Newline, Loc(line, col)));
+                self.consume()?;
             } else {
                 if c.is_whitespace() {
                     self.consume()?;
                 } else if c.is_digit(10) {
-                    let t = self.parse_number(line, col)?;
+                    let (t, d) = self.parse_number(line, col)?;
                     self.tokens.push(t);
+                    col += d;
+                } else if c.is_alphabetic() {
+                    let (t, d) = self.parse_ident(line, col)?;
+                    self.tokens.push(t);
+                    col += d;
+                } else if c == '"' {
+                    let (t, d) = self.parse_string(line, col)?;
+                    self.tokens.push(t);
+                    col += d;
+                } else if c == '{' {
+                    self.tokens
+                        .push(Token(TokenType::LeftBrace, Loc(line, col)));
+                    self.consume()?;
+                } else if c == '}' {
+                    self.tokens
+                        .push(Token(TokenType::RightBrace, Loc(line, col)));
+                    self.consume()?;
+                } else if c == '=' {
+                    self.tokens.push(Token(TokenType::Equals, Loc(line, col)));
+                    self.consume()?;
+                } else {
+                    return Err(Error::new(
+                        ErrorKind::InvalidInput,
+                        format!("Unexpected character {:?} at {}:{}", c, line, col,),
+                    ));
                 }
 
                 col += 1;
