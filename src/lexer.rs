@@ -1,6 +1,9 @@
-use std::io::{Error, ErrorKind, Result};
+use std::{
+    fmt::Display,
+    io::{Error, ErrorKind, Result},
+};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TokenType {
     Ident(String),
     Equals,
@@ -13,10 +16,27 @@ pub enum TokenType {
 }
 
 #[derive(Debug, Clone)]
-pub struct Loc(usize, usize);
+pub struct Loc(pub usize, pub usize);
 
 #[derive(Debug, Clone)]
-pub struct Token(TokenType, Loc);
+pub struct Token(pub TokenType, pub Loc);
+
+impl Display for TokenType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TokenType::Equals => write!(f, "="),
+            TokenType::LeftBrace => write!(f, "{{"),
+            TokenType::RightBrace => write!(f, "}}"),
+            TokenType::Newline => write!(f, "\n"),
+            TokenType::Ident(val)
+            | TokenType::Int(val)
+            | TokenType::Float(val)
+            | TokenType::String(val) => {
+                write!(f, "{:?}", val)
+            }
+        }
+    }
+}
 
 pub struct Tokenizer {
     content: String,
