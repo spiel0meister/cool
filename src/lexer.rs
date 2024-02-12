@@ -12,6 +12,9 @@ pub enum TokenType {
     Float(String),
     LeftBrace,
     RightBrace,
+    LeftBracket,
+    RightBracket,
+    Comma,
     Newline,
 }
 
@@ -35,6 +38,9 @@ impl Display for TokenType {
             TokenType::LeftBrace => write!(f, "{{"),
             TokenType::RightBrace => write!(f, "}}"),
             TokenType::Newline => write!(f, "\n"),
+            TokenType::LeftBracket => write!(f, "["),
+            TokenType::RightBracket => write!(f, "]"),
+            TokenType::Comma => write!(f, ","),
             TokenType::Ident(val)
             | TokenType::Int(val)
             | TokenType::Float(val)
@@ -186,6 +192,17 @@ impl Tokenizer {
                     self.consume()?;
                 } else if c == '=' {
                     self.tokens.push(Token(TokenType::Equals, Loc(col, line)));
+                    self.consume()?;
+                } else if c == '[' {
+                    self.tokens
+                        .push(Token(TokenType::LeftBracket, Loc(col, line)));
+                    self.consume()?;
+                } else if c == ']' {
+                    self.tokens
+                        .push(Token(TokenType::RightBracket, Loc(col, line)));
+                    self.consume()?;
+                } else if c == ',' {
+                    self.tokens.push(Token(TokenType::Comma, Loc(col, line)));
                     self.consume()?;
                 } else {
                     return Err(Error::new(
