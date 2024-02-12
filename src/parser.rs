@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    fmt::Display,
     io::{Error, ErrorKind, Result},
 };
 
@@ -25,6 +26,18 @@ impl CoolDataType {
         Ok(Self::Float(val.parse().map_err(|_| {
             Error::new(ErrorKind::InvalidInput, "Invalid value for float.")
         })?))
+    }
+}
+
+impl Display for CoolDataType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CoolDataType::Int(val) => write!(f, "{}", val),
+            CoolDataType::Float(val) => write!(f, "{}", val),
+            CoolDataType::String(val) => write!(f, "{:?}", val),
+            CoolDataType::Object(val) => write!(f, "{{\n{}}}", val),
+            CoolDataType::List(val) => write!(f, "{}", val),
+        }
     }
 }
 
@@ -95,6 +108,24 @@ impl CoolDataObject {
             ));
         };
         Ok(val)
+    }
+}
+
+impl IntoIterator for CoolDataObject {
+    type Item = (String, CoolDataType);
+    type IntoIter = std::collections::hash_map::IntoIter<String, CoolDataType>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl Display for CoolDataObject {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for (key, value) in self.0.iter() {
+            writeln!(f, "{} = {}", key, value)?;
+        }
+        Ok(())
     }
 }
 
@@ -172,6 +203,15 @@ impl CoolDataList {
 
     pub fn len(&self) -> usize {
         self.0.len()
+    }
+}
+
+impl Display for CoolDataList {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for value in self.0.iter() {
+            writeln!(f, "{}", value)?;
+        }
+        Ok(())
     }
 }
 
