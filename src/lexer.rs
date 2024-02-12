@@ -16,7 +16,14 @@ pub enum TokenType {
 }
 
 #[derive(Debug, Clone)]
+/// Location of a token in form (col, line).
 pub struct Loc(pub usize, pub usize);
+
+impl Display for Loc {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}:{}", self.1, self.0)
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct Token(pub TokenType, pub Loc);
@@ -118,7 +125,7 @@ impl Tokenizer {
         self.consume()?;
 
         Ok((
-            (Token(TokenType::String(buf), Loc(line, col))),
+            (Token(TokenType::String(buf), Loc(col, line))),
             col_delta + 1,
         ))
     }
@@ -137,7 +144,7 @@ impl Tokenizer {
         }
 
         Ok((
-            (Token(TokenType::Ident(buf), Loc(line, col))),
+            (Token(TokenType::Ident(buf), Loc(col, line))),
             col_delta + 1,
         ))
     }
@@ -152,7 +159,7 @@ impl Tokenizer {
             if c == '\n' {
                 line += 1;
                 col = 1;
-                self.tokens.push(Token(TokenType::Newline, Loc(line, col)));
+                self.tokens.push(Token(TokenType::Newline, Loc(col, line)));
                 self.consume()?;
             } else {
                 if c.is_whitespace() {
@@ -171,19 +178,19 @@ impl Tokenizer {
                     col += d;
                 } else if c == '{' {
                     self.tokens
-                        .push(Token(TokenType::LeftBrace, Loc(line, col)));
+                        .push(Token(TokenType::LeftBrace, Loc(col, line)));
                     self.consume()?;
                 } else if c == '}' {
                     self.tokens
-                        .push(Token(TokenType::RightBrace, Loc(line, col)));
+                        .push(Token(TokenType::RightBrace, Loc(col, line)));
                     self.consume()?;
                 } else if c == '=' {
-                    self.tokens.push(Token(TokenType::Equals, Loc(line, col)));
+                    self.tokens.push(Token(TokenType::Equals, Loc(col, line)));
                     self.consume()?;
                 } else {
                     return Err(Error::new(
                         ErrorKind::InvalidInput,
-                        format!("Unexpected character {:?} at {}:{}", c, line, col,),
+                        format!("Unexpected character {:?} at {}:{}", c, line, col),
                     ));
                 }
 

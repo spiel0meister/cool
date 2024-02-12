@@ -6,7 +6,7 @@ pub fn load(file_path: &str) -> Result<parser::CoolData> {
     use std::fs::read_to_string;
     let content = read_to_string(file_path)?;
     let mut tokenizer = lexer::Tokenizer::new(content);
-    let tokens = tokenizer.tokenize().unwrap();
+    let tokens = tokenizer.tokenize()?;
 
     let mut parser = parser::Parser::new(tokens);
     parser.parse()
@@ -14,7 +14,7 @@ pub fn load(file_path: &str) -> Result<parser::CoolData> {
 
 pub fn parse(content: impl Into<String>) -> Result<parser::CoolData> {
     let mut tokenizer = lexer::Tokenizer::new(content);
-    let tokens = tokenizer.tokenize().unwrap();
+    let tokens = tokenizer.tokenize()?;
 
     let mut parser = parser::Parser::new(tokens);
     parser.parse()
