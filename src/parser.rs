@@ -44,6 +44,30 @@ impl Display for CoolDataType {
 #[derive(Debug, Clone)]
 pub struct CoolDataObject(HashMap<String, CoolDataType>);
 
+macro_rules! impl_get {
+    ($func_name:ident, $func_mut_name:ident, $data_type:ident, $type:ty) => {
+        pub fn $func_name(&self, name: &str) -> Result<&$type> {
+            let CoolDataType::$data_type(val) = self.get_field(name)? else {
+                return Err(Error::new(
+                    ErrorKind::InvalidInput,
+                    format!("Field {:?} is not a {}.", name, stringify!($type)),
+                ));
+            };
+            Ok(val)
+        }
+
+        pub fn $func_mut_name(&mut self, name: &str) -> Result<&mut $type> {
+            let CoolDataType::$data_type(val) = self.get_field_mut(name)? else {
+                return Err(Error::new(
+                    ErrorKind::InvalidInput,
+                    format!("Field {:?} is not a {}.", name, stringify!($type)),
+                ));
+            };
+            Ok(val)
+        }
+    };
+}
+
 impl CoolDataObject {
     pub fn new() -> Self {
         Self(HashMap::new())
@@ -60,55 +84,18 @@ impl CoolDataObject {
         ))
     }
 
-    pub fn get_string(&self, name: &str) -> Result<String> {
-        let CoolDataType::String(val) = self.get_field(name)? else {
-            return Err(Error::new(
-                ErrorKind::InvalidInput,
-                format!("Field {:?} is not a string.", name),
-            ));
-        };
-        Ok(val.clone())
+    pub fn get_field_mut(&mut self, name: &str) -> Result<&mut CoolDataType> {
+        self.0.get_mut(name).ok_or(Error::new(
+            ErrorKind::InvalidInput,
+            format!("Unknown field {:?}", name),
+        ))
     }
 
-    pub fn get_int(&self, name: &str) -> Result<i32> {
-        let CoolDataType::Int(val) = self.get_field(name)? else {
-            return Err(Error::new(
-                ErrorKind::InvalidInput,
-                format!("Field {:?} is not an int.", name),
-            ));
-        };
-        Ok(val.clone())
-    }
-
-    pub fn get_float(&self, name: &str) -> Result<f32> {
-        let CoolDataType::Float(val) = self.get_field(name)? else {
-            return Err(Error::new(
-                ErrorKind::InvalidInput,
-                format!("Field {:?} is not an float.", name),
-            ));
-        };
-        Ok(val.clone())
-    }
-
-    pub fn get_object(&self, name: &str) -> Result<&CoolDataObject> {
-        let CoolDataType::Object(val) = self.get_field(name)? else {
-            return Err(Error::new(
-                ErrorKind::InvalidInput,
-                format!("Field {:?} is not an object.", name),
-            ));
-        };
-        Ok(val)
-    }
-
-    pub fn get_list(&self, name: &str) -> Result<&CoolDataList> {
-        let CoolDataType::List(val) = self.get_field(name)? else {
-            return Err(Error::new(
-                ErrorKind::InvalidInput,
-                format!("Field {:?} is not a list.", name),
-            ));
-        };
-        Ok(val)
-    }
+    impl_get!(get_string, get_string_mut, String, String);
+    impl_get!(get_int, get_int_mut, Int, i32);
+    impl_get!(get_float, get_float_mut, Float, f32);
+    impl_get!(get_object, get_object_mut, Object, CoolDataObject);
+    impl_get!(get_list, get_list_mut, List, CoolDataList);
 }
 
 impl IntoIterator for CoolDataObject {
@@ -132,6 +119,30 @@ impl Display for CoolDataObject {
 #[derive(Debug, Clone)]
 pub struct CoolDataList(Vec<CoolDataType>);
 
+macro_rules! impl_at {
+    ($func_name:ident, $func_mut_name:ident, $data_type:ident, $type:ty) => {
+        pub fn $func_name(&self, index: usize) -> Result<&$type> {
+            let CoolDataType::$data_type(val) = self.at(index)? else {
+                return Err(Error::new(
+                    ErrorKind::InvalidInput,
+                    format!("Index {} is not a {}.", index, stringify!($type)),
+                ));
+            };
+            Ok(val)
+        }
+
+        pub fn $func_mut_name(&mut self, index: usize) -> Result<&mut $type> {
+            let CoolDataType::$data_type(val) = self.at_mut(index)? else {
+                return Err(Error::new(
+                    ErrorKind::InvalidInput,
+                    format!("Index {} is not a {}.", index, stringify!($type)),
+                ));
+            };
+            Ok(val)
+        }
+    };
+}
+
 impl CoolDataList {
     pub fn new() -> Self {
         Self(Vec::new())
@@ -151,59 +162,11 @@ impl CoolDataList {
         ))
     }
 
-    pub fn string_at(&self, index: usize) -> Result<String> {
-        let CoolDataType::String(val) = self.at(index)? else {
-            return Err(Error::new(
-                ErrorKind::InvalidInput,
-                format!("Index {} is not a string.", index),
-            ));
-        };
-        Ok(val.clone())
-    }
-
-    pub fn int_at(&self, index: usize) -> Result<i32> {
-        let CoolDataType::Int(val) = self.at(index)? else {
-            return Err(Error::new(
-                ErrorKind::InvalidInput,
-                format!("Index {} is not a int.", index),
-            ));
-        };
-        Ok(val.clone())
-    }
-
-    pub fn float_at(&self, index: usize) -> Result<f32> {
-        let CoolDataType::Float(val) = self.at(index)? else {
-            return Err(Error::new(
-                ErrorKind::InvalidInput,
-                format!("Index {} is not a float.", index),
-            ));
-        };
-        Ok(val.clone())
-    }
-
-    pub fn object_at(&self, index: usize) -> Result<&CoolDataObject> {
-        let CoolDataType::Object(val) = self.at(index)? else {
-            return Err(Error::new(
-                ErrorKind::InvalidInput,
-                format!("Index {} is not a object.", index),
-            ));
-        };
-        Ok(val)
-    }
-
-    pub fn list_at(&self, index: usize) -> Result<&CoolDataList> {
-        let CoolDataType::List(val) = self.at(index)? else {
-            return Err(Error::new(
-                ErrorKind::InvalidInput,
-                format!("Index {} is not a list.", index),
-            ));
-        };
-        Ok(val)
-    }
-
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
+    impl_at!(string_at, string_at_mut, String, String);
+    impl_at!(int_at, int_at_mut, Int, i32);
+    impl_at!(float_at, float_at_mut, Float, f32);
+    impl_at!(object_at, object_at_mut, Object, CoolDataObject);
+    impl_at!(list_at, list_at_mut, List, CoolDataList);
 }
 
 impl Display for CoolDataList {
