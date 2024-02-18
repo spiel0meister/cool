@@ -13,6 +13,7 @@ pub enum CoolDataType {
     String(String),
     Object(CoolDataObject),
     List(CoolDataList),
+    Bool(bool),
 }
 
 impl CoolDataType {
@@ -37,12 +38,13 @@ impl Display for CoolDataType {
             CoolDataType::String(val) => write!(f, "{:?}", val),
             CoolDataType::Object(val) => write!(f, "{{\n{}}}", val),
             CoolDataType::List(val) => write!(f, "{}", val),
+            CoolDataType::Bool(val) => write!(f, "{}", val),
         }
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct CoolDataObject(HashMap<String, CoolDataType>);
+pub struct CoolDataObject(pub HashMap<String, CoolDataType>);
 
 macro_rules! impl_get {
     ($func_name:ident, $func_mut_name:ident, $data_type:ident, $type:ty) => {
@@ -94,6 +96,7 @@ impl CoolDataObject {
     impl_get!(get_string, get_string_mut, String, String);
     impl_get!(get_int, get_int_mut, Int, i32);
     impl_get!(get_float, get_float_mut, Float, f32);
+    impl_get!(get_bool, get_bool_mut, Bool, bool);
     impl_get!(get_object, get_object_mut, Object, CoolDataObject);
     impl_get!(get_list, get_list_mut, List, CoolDataList);
 }
@@ -117,7 +120,7 @@ impl Display for CoolDataObject {
 }
 
 #[derive(Debug, Clone)]
-pub struct CoolDataList(Vec<CoolDataType>);
+pub struct CoolDataList(pub Vec<CoolDataType>);
 
 macro_rules! impl_at {
     ($func_name:ident, $func_mut_name:ident, $data_type:ident, $type:ty) => {
@@ -165,6 +168,7 @@ impl CoolDataList {
     impl_at!(string_at, string_at_mut, String, String);
     impl_at!(int_at, int_at_mut, Int, i32);
     impl_at!(float_at, float_at_mut, Float, f32);
+    impl_at!(bool_at, bool_at_mut, Bool, bool);
     impl_at!(object_at, object_at_mut, Object, CoolDataObject);
     impl_at!(list_at, list_at_mut, List, CoolDataList);
 }
@@ -203,17 +207,16 @@ impl Parser {
     }
 
     fn parse_list(&mut self) -> Result<CoolDataList> {
-        self.consume()?;
         let mut out = CoolDataList::new();
 
         while self
             .peek(0)
-            .is_some_and(|Token(tt, _)| tt != &TokenType::RightBracket)
+            .is_some_and(|Token(tt, _)| !matches!(tt, &TokenType::RightBracket))
         {
             let t = self.peek(0).unwrap().clone();
             let Token(ref token_type, loc) = t;
 
-            if token_type == &TokenType::Comma {
+            if matches!(token_type, &TokenType::Comma) {
                 self.consume()?;
                 // continue;
             }
@@ -237,6 +240,7 @@ impl Parser {
                     out.0.push(CoolDataType::Object(obj));
                 }
                 TokenType::LeftBracket => {
+                    self.consume()?;
                     let list = self.parse_list()?;
                     let Some(Token(TokenType::RightBracket, _)) = self.peek(0) else {
                         return Err(Error::new(
@@ -254,6 +258,10 @@ impl Parser {
                     out.0.push(CoolDataType::float(val)?);
                     self.consume()?;
                 }
+                TokenType::Bool(val) => {
+                    out.0.push(CoolDataType::Bool(*val));
+                    self.consume()?;
+                }
                 TokenType::String(val) => {
                     out.0.push(CoolDataType::String(val.to_string()));
                     self.consume()?;
@@ -264,7 +272,6 @@ impl Parser {
                 other => unreachable!("{:?}", other),
             }
         }
-        self.consume()?;
 
         Ok(out)
     }
@@ -274,7 +281,7 @@ impl Parser {
 
         while self
             .peek(0)
-            .is_some_and(|Token(tt, _)| tt != &TokenType::RightBrace)
+            .is_some_and(|Token(tt, _)| !matches!(tt, &TokenType::RightBrace))
         {
             let t = self.peek(0).unwrap().clone();
             let Token(ref token_type, loc) = t;
@@ -316,6 +323,7 @@ impl Parser {
                             TokenType::Int(val) => CoolDataType::int(val.as_str())?,
                             TokenType::Float(val) => CoolDataType::float(val.as_str())?,
                             TokenType::String(val) => CoolDataType::String(val.to_string()),
+                            TokenType::Bool(val) => CoolDataType::Bool(*val),
                             other => unreachable!("{:?}", other),
                         };
                         self.consume()?;
@@ -343,7 +351,7 @@ impl Parser {
                     self.consume()?;
                     let Some(Token(TokenType::Equals, _)) = self.peek(0) else {
                         let Some(Token(tt, loc)) = self.peek(0) else {
-                            unreachable!();
+                            unreachable!("{}:{}:{}", file!(), line!(), column!());
                         };
                         return Err(Error::new(
                             ErrorKind::InvalidData,
@@ -363,6 +371,16 @@ impl Parser {
                         };
                         self.consume()?;
                         out.add_field(name.clone(), CoolDataType::Object(val));
+                    } else if let Some(Token(TokenType::LeftBracket, _)) = self.peek(0) {
+                        let val = self.parse_list()?;
+                        let Token(TokenType::RightBracket, _) = self.consume()? else {
+                            return Err(Error::new(
+                                ErrorKind::InvalidData,
+                                format!("Exptected `]`, got `{}` at {}:{}", t.0, loc.1, loc.0),
+                            ));
+                        };
+                        self.consume()?;
+                        out.add_field(name.clone(), CoolDataType::List(val));
                     } else {
                         let Some(Token(token_type, _)) = self.peek(0) else {
                             return Err(Error::new(ErrorKind::UnexpectedEof, "End of tokens!"));
@@ -371,6 +389,7 @@ impl Parser {
                             TokenType::Int(val) => CoolDataType::int(val.as_str())?,
                             TokenType::Float(val) => CoolDataType::float(val.as_str())?,
                             TokenType::String(val) => CoolDataType::String(val.to_string()),
+                            TokenType::Bool(val) => CoolDataType::Bool(*val),
                             other => unreachable!("{:?}", other),
                         };
                         self.consume()?;

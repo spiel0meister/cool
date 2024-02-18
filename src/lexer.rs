@@ -3,9 +3,10 @@ use std::{
     io::{Error, ErrorKind, Result},
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum TokenType {
     Ident(String),
+    Bool(bool),
     Equals,
     String(String),
     Int(String),
@@ -47,6 +48,7 @@ impl Display for TokenType {
             | TokenType::String(val) => {
                 write!(f, "{:?}", val)
             }
+            TokenType::Bool(val) => write!(f, "{:?}", val),
         }
     }
 }
@@ -141,18 +143,16 @@ impl Tokenizer {
         buf.push(self.consume()?);
         let mut col_delta = 0usize;
 
-        while self
-            .peek(0)
-            .is_some_and(|c| c.is_alphabetic() && !c.is_whitespace() && c != '=')
-        {
+        while self.peek(0).is_some_and(|c| c.is_alphabetic() || c == '_') {
             buf.push(self.consume()?);
             col_delta += 1;
         }
 
-        Ok((
-            (Token(TokenType::Ident(buf), Loc(col, line))),
-            col_delta + 1,
-        ))
+        Ok(match buf.as_str() {
+            "true" => (Token(TokenType::Bool(true), Loc(col, line)), col_delta),
+            "false" => (Token(TokenType::Bool(false), Loc(col, line)), col_delta),
+            _ => (Token(TokenType::Ident(buf), Loc(col, line)), col_delta),
+        })
     }
 
     pub fn tokenize(&mut self) -> Result<Vec<Token>> {
